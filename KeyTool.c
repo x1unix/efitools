@@ -594,13 +594,13 @@ manipulate_key(int key)
 	}
 
 	EFI_SIGNATURE_LIST *CertList;
-	int cert_count = 0, add = NOSEL, replace = NOSEL, hash = NOSEL,
-		save = NOSEL;
+	int cert_count = 0, add = NOSEL, replace = NOSEL,
+		replace_esl = NOSEL, hash = NOSEL, save = NOSEL;
 	certlist_for_each_certentry(CertList, Data, Size, DataSize) {
 		cert_count += (CertList->SignatureListSize - sizeof(EFI_SIGNATURE_LIST) - CertList->SignatureHeaderSize) / CertList->SignatureSize;
 	}
 
-	CHAR16 **guids = (CHAR16 **)AllocatePool((cert_count + 5)*sizeof(void *));
+	CHAR16 **guids = (CHAR16 **)AllocatePool((cert_count + 6)*sizeof(void *));
 	cert_count = 0;
 	int g;
 	certlist_for_each_certentry(CertList, Data, Size, DataSize) {
@@ -618,6 +618,10 @@ manipulate_key(int key)
 	}
 	replace = g;
 	guids[g++] = L"Replace Key(s)";
+	if (key == KEY_PK && setup_mode) {
+		replace_esl = g;
+		guids[g++] = L"Replace Key from .esl Backup";
+	}
 
 	if (keyinfo[key].hash && (!keyinfo[key].authenticated || setup_mode)) {
 		hash = g;
@@ -636,7 +640,15 @@ manipulate_key(int key)
 	FreePool(guids);
 	if (select == replace)
 		add_new_key(key, 0);
-	else if (select == add)
+	else if (select == replace_esl) {
+		CHAR16 *esl_title[] = {
+			L"Select .esl backup containing the Platform Key",
+			L"Enrolling PK will take the platform out of Setup Mode",
+			NULL
+		};
+
+		select_and_apply(esl_title, L".esl", key, 0);
+	} else if (select == add)
 		add_new_key(key, EFI_VARIABLE_APPEND_WRITE);
 	else if (select == hash)
 		enroll_hash(key);
